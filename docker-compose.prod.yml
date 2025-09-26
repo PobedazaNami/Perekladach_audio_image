@@ -26,7 +26,7 @@ services:
     container_name: translation_redis_cache
     restart: unless-stopped
     ports:
-      - "6380:6379"  # Используем порт 6380 чтобы не конфликтовать с другим Redis
+      - "6380:6379" # Используем порт 6380 чтобы не конфликтовать с другим Redis
     volumes:
       - translation_redis_data:/data
     command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
@@ -35,6 +35,7 @@ services:
 
 volumes:
   translation_redis_data:
+
 
 networks:
   translation_network:

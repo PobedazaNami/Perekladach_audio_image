@@ -3,51 +3,32 @@ name: Deploy to Server
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
-    
+    runs-on: self-hosted
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create Google Cloud credentials file
+        run: |
+          mkdir -p credentials
+          echo "${{ secrets.GCP_CREDENTIALS }}" > credentials/vision-api-key.json
+
+      - name: Create .env file from all secrets
+        run: |
+          echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" > .env
+          echo "GOOGLE_APPLICATION_CREDENTIALS=credentials/vision-api-key.json" >> .env
+          echo "ADMIN_IDS=${{ secrets.ADMIN_IDS }}" >> .env
+          echo "CACHE_TTL_HOURS=${{ secrets.CACHE_TTL_HOURS }}" >> .env
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+          echo "REDIS_PUBLIC_URL=${{ secrets.REDIS_PUBLIC_URL }}" >> .env
+          echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" >> .env
       
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-        
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        
-    - name: Run tests (if any)
-      run: |
-        # python -m pytest tests/ || echo "No tests found"
-        echo "Tests skipped - add pytest if needed"
-        
-    - name: Deploy to server via SSH
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        port: ${{ secrets.PORT }}
-        script: |
-          cd /opt/translation-bot
-          git pull origin main
+      - name: Build and run Docker containers
+        run: |
           docker-compose -f docker-compose.prod.yml down
-          docker-compose -f docker-compose.prod.yml build --no-cache
+          docker-compose -f docker-compose.prod.yml build
           docker-compose -f docker-compose.prod.yml up -d
-          echo "🚀 Translation bot deployed successfully!"
-          
-    - name: Deploy with Docker Hub (alternative)
-      if: false  # Включите если используете Docker Hub
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: true
-        tags: pobedazanami/translation-bot:latest
