@@ -42,6 +42,7 @@ jobs:
           docker-compose -f docker-compose.prod.yml down
           docker-compose -f docker-compose.prod.yml build --no-cache
           docker-compose -f docker-compose.prod.yml up -d
+          echo "🚀 Translation bot deployed successfully!"
           
     - name: Deploy with Docker Hub (alternative)
       if: false  # Включите если используете Docker Hub
