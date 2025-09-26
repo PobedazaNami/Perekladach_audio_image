@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: translation_bot
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MONGODB_URI=${MONGODB_URI}
+      - MONGODB_DATABASE=${MONGODB_DATABASE}
+      - REDIS_URL=${REDIS_URL}
+      - ADMIN_IDS=${ADMIN_IDS}
+      - GOOGLE_APPLICATION_CREDENTIALS=credentials/vision-api-key.json
+    volumes:
+      - ./credentials:/app/credentials:ro  # Read-only mount для безопасности
+      - ./logs:/app/logs
+    depends_on:
+      - redis
+    networks:
+      - bot_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: translation_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - bot_network
+
+volumes:
+  redis_data:
+
+networks:
+  bot_network:
+    driver: bridge

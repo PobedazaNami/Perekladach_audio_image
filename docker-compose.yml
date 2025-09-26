@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  telegram-bot:
+    build: .
+    container_name: translation_bot
+    restart: unless-stopped
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/vision-api-key.json
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./credentials:/app/credentials:ro
+      - ./logs:/app/logs
+    env_file:
+      - .env
+    # Перезапуск при падении
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import requests; requests.get('https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe')" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
