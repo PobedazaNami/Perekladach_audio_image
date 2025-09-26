@@ -20,6 +20,7 @@ jobs:
       - name: Create .env file from all secrets
         run: |
           echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" > .env
+          echo "MONGODB_DATABASE=translation_bot" >> .env
           echo "GOOGLE_APPLICATION_CREDENTIALS=credentials/vision-api-key.json" >> .env
           echo "ADMIN_IDS=${{ secrets.ADMIN_IDS }}" >> .env
           echo "CACHE_TTL_HOURS=${{ secrets.CACHE_TTL_HOURS }}" >> .env
