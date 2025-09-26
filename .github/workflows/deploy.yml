@@ -37,16 +37,16 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.PORT }}
         script: |
-          cd /path/to/your/bot
+          cd /opt/translation-bot
           git pull origin main
-          docker-compose down
-          docker-compose build --no-cache
-          docker-compose up -d
+          docker-compose -f docker-compose.prod.yml down
+          docker-compose -f docker-compose.prod.yml build --no-cache
+          docker-compose -f docker-compose.prod.yml up -d
           
-    - name: Deploy with Docker (alternative)
+    - name: Deploy with Docker Hub (alternative)
       if: false  # Включите если используете Docker Hub
       uses: docker/build-push-action@v5
       with:
         context: .
         push: true
-        tags: your-registry/translation-bot:latest
+        tags: pobedazanami/translation-bot:latest
