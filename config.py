@@ -4,7 +4,7 @@ import logging
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
-import pymysql
+# import pymysql  # Временно отключен для режима только текстового перевода
 
 # Настройка логирования
 logging.basicConfig(
@@ -117,21 +117,22 @@ DB_PASSWORD = os.getenv('DB_PASSWORD', 't5@+HyrA98')
 DB_NAME = os.getenv('DB_NAME', 'ke490456_dolmether')
 DB_CHARSET = os.getenv('DB_CHARSET', 'utf8mb4')
 
-def get_db_connection():
-    """Возвращает новое соединение с базой данных (legacy MySQL)."""
-    try:
-        connection = pymysql.connect(
-            host=DB_HOST,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            db=DB_NAME,
-            charset=DB_CHARSET,
-            cursorclass=pymysql.cursors.DictCursor
-        )
-        return connection
-    except pymysql.MySQLError as e:
-        logger.critical(f"Не удалось подключиться к MySQL базе данных: {e}", exc_info=True)
-        raise
+# Временно отключено для режима только текстового перевода
+# def get_db_connection():
+#     """Возвращает новое соединение с базой данных (legacy MySQL)."""
+#     try:
+#         connection = pymysql.connect(
+#             host=DB_HOST,
+#             user=DB_USER,
+#             password=DB_PASSWORD,
+#             db=DB_NAME,
+#             charset=DB_CHARSET,
+#             cursorclass=pymysql.cursors.DictCursor
+#         )
+#         return connection
+#     except pymysql.MySQLError as e:
+#         logger.critical(f"Не удалось подключиться к MySQL базе данных: {e}", exc_info=True)
+#         raise
 
 # Функция для инициализации MongoDB коллекций
 def initialize_mongodb_collections():

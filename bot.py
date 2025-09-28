@@ -27,13 +27,13 @@ from telegram.constants import ParseMode
 from telegram.error import BadRequest
 from dotenv import load_dotenv
 import openai
-from google.cloud import vision, speech
-from google.cloud.vision_v1 import types as vision_types
-from PIL import Image
-import io
+# from google.cloud import vision, speech
+# from google.cloud.vision_v1 import types as vision_types
+# from PIL import Image
+# import io
 from langdetect import detect, LangDetectException
 
-from pydub import AudioSegment
+# from pydub import AudioSegment
 
 import redis.asyncio as redis
 
@@ -88,43 +88,48 @@ load_dotenv()
 PRACTICE_MODEL = "gpt-4o-mini"
 PRACTICE_TEMPERATURE = 0.2
 
-# Проверка ffmpeg
-ffmpeg_exe = shutil.which('ffmpeg')
-ffprobe_exe = shutil.which('ffprobe')
-
-if not ffmpeg_exe:
-    config_logger.critical("ffmpeg не найден в PATH.")
-    raise FileNotFoundError("ffmpeg не найден в PATH.")
-if not ffprobe_exe:
-    config_logger.critical("ffprobe не найден в PATH.")
-    raise FileNotFoundError("ffprobe не найден в PATH.")
-
-AudioSegment.converter = ffmpeg_exe
-AudioSegment.ffprobe = ffprobe_exe
+# --- Закомментировано для режима только текстового перевода ---
+# # Проверка ffmpeg
+# ffmpeg_exe = shutil.which('ffmpeg')
+# ffprobe_exe = shutil.which('ffprobe')
+# 
+# if not ffmpeg_exe:
+#     config_logger.critical("ffmpeg не найден в PATH.")
+#     raise FileNotFoundError("ffmpeg не найден в PATH.")
+# if not ffprobe_exe:
+#     config_logger.critical("ffprobe не найден в PATH.")
+#     raise FileNotFoundError("ffprobe не найден в PATH.")
+# 
+# AudioSegment.converter = ffmpeg_exe
+# AudioSegment.ffprobe = ffprobe_exe
 
 # --- Переменные окружения и клиенты API ---
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+# GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")  # Закомментировано - не нужно для режима 1
 REDIS_URL = os.getenv('REDIS_URL')
 
 def check_environment():
     """Проверка наличия необходимых переменных окружения."""
-    if not all([TELEGRAM_BOT_TOKEN, OPENAI_API_KEY, GOOGLE_APPLICATION_CREDENTIALS]):
-        config_logger.critical("Одна или несколько ключевых переменных окружения отсутствуют (TELEGRAM, OPENAI, GOOGLE).")
-        return False
-    if not os.path.exists(GOOGLE_APPLICATION_CREDENTIALS):
-        config_logger.critical("Файл с учетными данными Google не найден.")
+    # Закомментировано для работы только с режимом 1 (текстовый перевод)
+    # if not all([TELEGRAM_BOT_TOKEN, OPENAI_API_KEY, GOOGLE_APPLICATION_CREDENTIALS]):
+    #     config_logger.critical("Одна или несколько ключевых переменных окружения отсутствуют (TELEGRAM, OPENAI, GOOGLE).")
+    #     return False
+    # if not os.path.exists(GOOGLE_APPLICATION_CREDENTIALS):
+    #     config_logger.critical("Файл с учетными данными Google не найден.")
+    #     return False
+    if not all([TELEGRAM_BOT_TOKEN, OPENAI_API_KEY]):
+        config_logger.critical("Одна или несколько ключевых переменных окружения отсутствуют (TELEGRAM, OPENAI).")
         return False
     config_logger.info("Все переменные окружения найдены.")
     return True
 
 # Настройка клиентов API
 openai.api_key = OPENAI_API_KEY
-# ИСПОЛЬЗУЕМ АСИНХРОННЫЕ КЛИЕНТЫ
-vision_client = vision.ImageAnnotatorAsyncClient()
-speech_client = speech.SpeechAsyncClient()
+# ИСПОЛЬЗУЕМ АСИНХРОННЫЕ КЛИЕНТЫ - закомментировано для работы только с режимом 1
+# vision_client = vision.ImageAnnotatorAsyncClient()
+# speech_client = speech.SpeechAsyncClient()
 redis_client = redis.from_url(REDIS_URL, decode_responses=True) if REDIS_URL else None
 
 # --- Глобальные переменные и константы ---
@@ -417,44 +422,48 @@ async def handle_message_optimized(update: Update, context: ContextTypes.DEFAULT
         if update.message.text:
             await translate_text_streaming(update, context, update.message.text)
         
+        # Режимы 2 и 3 временно отключены для деплоя без Google Cloud
         # Обрабатываем голосовые сообщения (только режим 3)
-        elif update.message.voice and get_user_mode(user_id) == 3:
-            await handle_audio(update, context)
+        # elif update.message.voice and get_user_mode(user_id) == 3:
+        #     await handle_audio(update, context)
             
         # Обрабатываем изображения (только режим 2)  
-        elif update.message.photo and get_user_mode(user_id) == 2:
-            await handle_image(update, context)
+        # elif update.message.photo and get_user_mode(user_id) == 2:
+        #     await handle_image(update, context)
             
         else:
             mode = get_user_mode(user_id)
-            if mode == 2 and not update.message.photo:
-                await update.message.reply_text("🖼️ В режиме 2 отправляйте изображения с текстом для перевода.")
-            elif mode == 3 and not update.message.voice:
-                await update.message.reply_text("🎤 В режиме 3 отправляйте голосовые сообщения для перевода.")
+            if mode == 2:
+                await update.message.reply_text("🖼️ Режим обработки изображений временно недоступен. Используйте режим 1 для перевода текста.")
+            elif mode == 3:
+                await update.message.reply_text("🎤 Режим обработки аудио временно недоступен. Используйте режим 1 для перевода текста.")
+            elif mode != 1:
+                await update.message.reply_text("💬 Отправьте текст для перевода или переключитесь на режим 1.")
             
     except Exception as e:
         logger.error(f"❌ Error in message handler: {e}")
         await update.message.reply_text("❌ Произошла ошибка при обработке сообщения.")
 
 
-# --- Вспомогательные функции для обработки файлов ---
+# --- Вспомогательные функции для обработки файлов (закомментированы) ---
 
-def _process_audio_sync(audio_bytes: bytearray) -> bytes:
-    """Синхронная функция для конвертации аудио."""
-    with io.BytesIO(audio_bytes) as audio_io:
-        audio_segment = AudioSegment.from_file(audio_io)
-        processed_segment = audio_segment.set_sample_width(2).set_frame_rate(16000).set_channels(1)
-        with io.BytesIO() as wav_io:
-            processed_segment.export(wav_io, format="wav")
-            return wav_io.getvalue()
-
-def _process_image_sync(image_bytes: bytearray) -> bytes:
-    """Синхронная функция для оптимизации изображения."""
-    with Image.open(io.BytesIO(image_bytes)) as image:
-        image.thumbnail((1024, 1024))
-        with io.BytesIO() as optimized_image_io:
-            image.save(optimized_image_io, format='JPEG', quality=85)
-            return optimized_image_io.getvalue()
+# Закомментировано - режимы 2 и 3 временно отключены для деплоя без Google Cloud
+# def _process_audio_sync(audio_bytes: bytearray) -> bytes:
+#     """Синхронная функция для конвертации аудио."""
+#     with io.BytesIO(audio_bytes) as audio_io:
+#         audio_segment = AudioSegment.from_file(audio_io)
+#         processed_segment = audio_segment.set_sample_width(2).set_frame_rate(16000).set_channels(1)
+#         with io.BytesIO() as wav_io:
+#             processed_segment.export(wav_io, format="wav")
+#             return wav_io.getvalue()
+# 
+# def _process_image_sync(image_bytes: bytearray) -> bytes:
+#     """Синхронная функция для оптимизации изображения."""
+#     with Image.open(io.BytesIO(image_bytes)) as image:
+#         image.thumbnail((1024, 1024))
+#         with io.BytesIO() as optimized_image_io:
+#             image.save(optimized_image_io, format='JPEG', quality=85)
+#             return optimized_image_io.getvalue()
 
 
 # --- Обработчики команд ---
@@ -660,70 +669,71 @@ async def translate_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         async with processing_lock:
             processing_users.discard(user_id)
 
-@log_execution_time
-async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not await asyncio.to_thread(is_authorized, user_id) or await asyncio.to_thread(get_user_mode, user_id) != 2:
-        await update.message.reply_text("Обработка изображений доступна только в режиме 2.")
-        return
+# Закомментировано - режимы 2 и 3 временно отключены для деплоя без Google Cloud
+# @log_execution_time
+# async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     user_id = update.effective_user.id
+#     if not await asyncio.to_thread(is_authorized, user_id) or await asyncio.to_thread(get_user_mode, user_id) != 2:
+#         await update.message.reply_text("Обработка изображений доступна только в режиме 2.")
+#         return
+# 
+#     async with processing_lock:
+#         if user_id in processing_users:
+#             await update.message.reply_text("⚠️ Обработка предыдущего запроса еще не завершена.")
+#             return
+#         processing_users.add(user_id)
+#     
+#     try:
+#         file = await update.message.photo[-1].get_file()
+#         image_bytes = await file.download_as_bytearray()
+#         optimized_bytes = await asyncio.to_thread(_process_image_sync, image_bytes)
+#         response = await vision_client.text_detection(image=vision_types.Image(content=optimized_bytes))
+#         
+#         if not (extracted_text := response.text_annotations[0].description.strip() if response.text_annotations else ""):
+#             await update.message.reply_text("Не удалось распознать текст.")
+#             return
+#         
+#         await translate_text_streaming(update, context, extracted_text)
+#     finally:
+#         async with processing_lock:
+#             processing_users.discard(user_id)
 
-    async with processing_lock:
-        if user_id in processing_users:
-            await update.message.reply_text("⚠️ Обработка предыдущего запроса еще не завершена.")
-            return
-        processing_users.add(user_id)
-    
-    try:
-        file = await update.message.photo[-1].get_file()
-        image_bytes = await file.download_as_bytearray()
-        optimized_bytes = await asyncio.to_thread(_process_image_sync, image_bytes)
-        response = await vision_client.text_detection(image=vision_types.Image(content=optimized_bytes))
-        
-        if not (extracted_text := response.text_annotations[0].description.strip() if response.text_annotations else ""):
-            await update.message.reply_text("Не удалось распознать текст.")
-            return
-        
-        await translate_text_streaming(update, context, extracted_text)
-    finally:
-        async with processing_lock:
-            processing_users.discard(user_id)
-
-@log_execution_time
-async def handle_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not await asyncio.to_thread(is_authorized, user_id) or await asyncio.to_thread(get_user_mode, user_id) != 3:
-        await update.message.reply_text("Обработка аудио доступна только в режиме 3.")
-        return
-        
-    async with processing_lock:
-        if user_id in processing_users:
-            await update.message.reply_text("⚠️ Обработка предыдущего запроса еще не завершена.")
-            return
-        processing_users.add(user_id)
-        
-    try:
-        audio_file = update.message.voice or update.message.audio
-        file = await audio_file.get_file()
-        wav_bytes = await asyncio.to_thread(_process_audio_sync, await file.download_as_bytearray())
-
-        config = speech.RecognitionConfig(
-            encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-            sample_rate_hertz=16000,
-            language_code="de-DE",
-            alternative_language_codes=["uk-UA"],
-            enable_automatic_punctuation=True,
-        )
-        response = await speech_client.recognize(config=config, audio=speech.RecognitionAudio(content=wav_bytes))
-        
-        if not (transcript := response.results[0].alternatives[0].transcript if response.results else ""):
-            await update.message.reply_text("Не удалось распознать речь.")
-            return
-        
-        await update.message.reply_text(f"📝 Распознано: *{transcript}*", parse_mode=ParseMode.MARKDOWN_V2)
-        await translate_text_streaming(update, context, transcript)
-    finally:
-        async with processing_lock:
-            processing_users.discard(user_id)
+# @log_execution_time
+# async def handle_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     user_id = update.effective_user.id
+#     if not await asyncio.to_thread(is_authorized, user_id) or await asyncio.to_thread(get_user_mode, user_id) != 3:
+#         await update.message.reply_text("Обработка аудио доступна только в режиме 3.")
+#         return
+#         
+#     async with processing_lock:
+#         if user_id in processing_users:
+#             await update.message.reply_text("⚠️ Обработка предыдущего запроса еще не завершена.")
+#             return
+#         processing_users.add(user_id)
+#         
+#     try:
+#         audio_file = update.message.voice or update.message.audio
+#         file = await audio_file.get_file()
+#         wav_bytes = await asyncio.to_thread(_process_audio_sync, await file.download_as_bytearray())
+# 
+#         config = speech.RecognitionConfig(
+#             encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+#             sample_rate_hertz=16000,
+#             language_code="de-DE",
+#             alternative_language_codes=["uk-UA"],
+#             enable_automatic_punctuation=True,
+#         )
+#         response = await speech_client.recognize(config=config, audio=speech.RecognitionAudio(content=wav_bytes))
+#         
+#         if not (transcript := response.results[0].alternatives[0].transcript if response.results else ""):
+#             await update.message.reply_text("Не удалось распознать речь.")
+#             return
+#         
+#         await update.message.reply_text(f"📝 Распознано: *{transcript}*", parse_mode=ParseMode.MARKDOWN_V2)
+#         await translate_text_streaming(update, context, transcript)
+#     finally:
+#         async with processing_lock:
+#             processing_users.discard(user_id)
 
 
 # --- Обработчики кнопок и режимов ---
@@ -739,8 +749,8 @@ async def switch_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [
         [InlineKeyboardButton(get_text("mode_1_button", user_language), callback_data='mode_1')],
-        [InlineKeyboardButton(get_text("mode_2_button", user_language), callback_data='mode_2')],
-        [InlineKeyboardButton(get_text("mode_3_button", user_language), callback_data='mode_3')],
+        [InlineKeyboardButton("📷 Режим 2 (временно недоступен)", callback_data='mode_unavailable')],
+        [InlineKeyboardButton("🎤 Режим 3 (временно недоступен)", callback_data='mode_unavailable')],
         [InlineKeyboardButton(get_text("mode_4_button", user_language), callback_data='mode_4')],
     ]
     sent = await update.message.reply_text(
@@ -760,6 +770,14 @@ async def set_user_mode_handler(update: Update, context: ContextTypes.DEFAULT_TY
     user_language = await asyncio.to_thread(get_user_interface_language, user_id)
     if not user_language:
         user_language = "uk"
+    
+    # Блокируем недоступные режимы
+    if mode == 2:
+        await query.edit_message_text("⚠️ Режим обработки изображений временно недоступен. Используйте режим 1 для перевода текста.")
+        return
+    elif mode == 3:
+        await query.edit_message_text("⚠️ Режим обработки аудио временно недоступен. Используйте режим 1 для перевода текста.")
+        return
     
     await asyncio.to_thread(set_user_mode, user_id, mode)
     
@@ -783,7 +801,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
     admin_id = query.from_user.id
 
-    if data.startswith("mode_"):
+    if data == "mode_unavailable":
+        await query.edit_message_text("⚠️ Этот режим временно недоступен. Используйте режим 1 для перевода текста.")
+        return
+    elif data.startswith("mode_"):
         await set_user_mode_handler(update, context, data)
     elif data.startswith("lang_"):
         # Обработка смены языка интерфейса
@@ -966,8 +987,9 @@ async def main():
     application.add_handler(CommandHandler("words", words_command))
     
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message_optimized))
-    application.add_handler(MessageHandler(filters.PHOTO, handle_image))
-    application.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_audio))
+    # Режимы 2 и 3 временно отключены для деплоя без Google Cloud
+    # application.add_handler(MessageHandler(filters.PHOTO, handle_image))
+    # application.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_audio))
     
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_error_handler(error_handler)
