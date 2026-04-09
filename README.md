@@ -20,6 +20,8 @@
 # Основные (обязательные)
 TELEGRAM_BOT_TOKEN=your_bot_token
 OPENAI_API_KEY=your_openai_key
+OPENAI_TRANSLATION_MODEL=gpt-4o
+OPENAI_TRANSLATION_FALLBACK_MODEL=gpt-4o-mini
 MONGODB_URI=your_mongodb_connection_string
 ADMIN_IDS=662790795,other_admin_id
 

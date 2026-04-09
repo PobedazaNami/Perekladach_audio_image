@@ -294,16 +294,27 @@ async def translate_text_streaming(update: Update, context: ContextTypes.DEFAULT
     try:
         # Получаем режим пользователя
         mode = get_user_mode(user_id)
+        user_lang = get_user_lang(user_id)
+        translation_context = high_performance_api.build_translation_context(
+            text=text,
+            user_mode=mode,
+            interface_language=user_lang,
+        )
         
         # Уведомляем пользователя о начале обработки с typing indicator
         await smart_ux.start_typing_indicator(update, context)
         
         # Пытаемся получить из оптимизированного кэша
-        cached_result = await get_optimized_translation(text, mode, user_id)
+        cached_result = await get_optimized_translation(
+            text,
+            mode,
+            user_id,
+            translation_context.source_lang,
+            translation_context.target_lang,
+        )
         if cached_result:
             # Добавляем кнопку сохранения слова
-            lang = get_user_lang(update.effective_user.id)
-            kb = InlineKeyboardMarkup([[InlineKeyboardButton(get_text("save_word_button", lang), callback_data="save_word")]])
+            kb = InlineKeyboardMarkup([[InlineKeyboardButton(get_text("save_word_button", user_lang), callback_data="save_word")]])
             await update.message.reply_text(cached_result, reply_markup=kb)
             # Запоминаем последнюю пару для сохранения
             context.user_data['last_source_text'] = text
@@ -317,13 +328,15 @@ async def translate_text_streaming(update: Update, context: ContextTypes.DEFAULT
         # Не переоткрываем нижнее меню на каждое сообщение
         processing_notification = await update.message.reply_text("🕒 Обробка запиту...")
         # Получаем промпт конфигурацию
-        prompt_config = get_openai_prompt(mode)
+        # Prompt selection is centralized inside high_performance_api.
         
         # Используем оптимизированный API клиент
         response = await high_performance_api.translate_text_optimized(
             text=text,
             user_mode=mode,
-            user_id=user_id
+            user_id=user_id,
+            interface_language=user_lang,
+            translation_context=translation_context
         )
         
         translated_text = response.content if response.success else None
@@ -331,8 +344,7 @@ async def translate_text_streaming(update: Update, context: ContextTypes.DEFAULT
         if translated_text:
             # Обновляем сообщение финальным переводом
             try:
-                lang = get_user_lang(update.effective_user.id)
-                kb = InlineKeyboardMarkup([[InlineKeyboardButton(get_text("save_word_button", lang), callback_data="save_word")]])
+                kb = InlineKeyboardMarkup([[InlineKeyboardButton(get_text("save_word_button", user_lang), callback_data="save_word")]])
                 await context.bot.edit_message_text(
                     text=translated_text,
                     chat_id=user_id,
@@ -345,7 +357,7 @@ async def translate_text_streaming(update: Update, context: ContextTypes.DEFAULT
             except BadRequest as e:
                 if "Message can't be edited" in str(e):
                     logger.warning(f"Message was deleted by user {user_id}, sending new message")
-                    kb = InlineKeyboardMarkup([[InlineKeyboardButton(get_text("save_word_button", get_user_lang(update.effective_user.id)), callback_data="save_word")]])
+                    kb = InlineKeyboardMarkup([[InlineKeyboardButton(get_text("save_word_button", user_lang), callback_data="save_word")]])
                     await update.message.reply_text(
                         translated_text,
                         reply_markup=kb
@@ -358,7 +370,14 @@ async def translate_text_streaming(update: Update, context: ContextTypes.DEFAULT
                     raise e
             
             # Сохраняем в оптимизированный кэш
-            await cache_optimized_translation(text, translated_text, mode, user_id)
+            await cache_optimized_translation(
+                text,
+                translated_text,
+                mode,
+                user_id,
+                translation_context.source_lang,
+                translation_context.target_lang,
+            )
             
             # Обновляем статистику
             await asyncio.to_thread(update_input_chars, user_id, len(text))
